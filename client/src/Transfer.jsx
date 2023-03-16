@@ -64,7 +64,6 @@ function Transfer({ address, setBalance }) {
         return {
           signature,
           data: JSON.parse(msgParams),
-          from: address
         };
       })
   }
