@@ -2,15 +2,17 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const port = 3042;
+const sigUtil = require('@metamask/eth-sig-util')
+require('dotenv').config()
 
 app.use(cors());
 app.use(express.json());
 
 const balances = {
-  "0x2a496765174050262f99bed4fb83ec95e3604853": 1000,
   "0x2": 50,
   "0x3": 75,
 };
+balances[process.env.YOUR_WALLET_ADDRESS] = 1000;
 
 app.get("/balance/:address", (req, res) => {
   const { address } = req.params;
@@ -21,6 +23,13 @@ app.get("/balance/:address", (req, res) => {
 
 app.post("/send", (req, res) => {
   console.log(req.body)
+
+  //verify signature
+  const recoveredAddress = getPublicKey(req.body.data, req.body.signature)
+  if (recoveredAddress !== req.body.data.message.sender) {
+    return res.status(403).send({ message: "Invalid signature!" });
+  }
+
   const { sender, recipient, amount } = req.body.data.message;
 
   setInitialBalance(sender);
@@ -43,4 +52,8 @@ function setInitialBalance(address) {
   if (!balances[address]) {
     balances[address] = 0;
   }
+}
+
+function getPublicKey(data, signature) {
+  return sigUtil.recoverTypedSignature({data, signature, version: 'V4'})
 }
