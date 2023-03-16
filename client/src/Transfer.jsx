@@ -7,21 +7,66 @@ function Transfer({ address, setBalance }) {
 
   const setValue = (setter) => (evt) => setter(evt.target.value);
 
-  async function transfer(evt) {
+  function transfer(evt) {
     evt.preventDefault();
 
-    try {
-      const {
-        data: { balance },
-      } = await server.post(`send`, {
+    getSignatureRequest()
+      .then(async (data) => {
+        const {
+          data: { balance },
+        } = await server.post(`send`, data);
+        setBalance(balance);
+      })
+      .catch(err => {
+        console.error(err);
+        if (err.request) {
+          alert(JSON.parse(err.request.response).message);
+        } else {
+          alert(err.message);
+        }
+      });
+  }
+
+  function getSignatureRequest() {
+    // https://docs.metamask.io/guide/signing-data.html#signtypeddata-v4
+    const msgParams = JSON.stringify({
+      domain: {
+        // Give a user friendly name to the specific contract you are signing for.
+        name: 'ECDSA Node',
+        // Just let's you know the latest version. Definitely make sure the field name is correct.
+        version: '1',
+      },
+
+      // Defining the message signing data content.
+      message: {
         sender: address,
         amount: parseInt(sendAmount),
-        recipient,
-      });
-      setBalance(balance);
-    } catch (ex) {
-      alert(ex.response.data.message);
-    }
+        recipient
+      },
+      primaryType: 'Transaction',
+      types: {
+        Transaction: [
+          { name: 'sender', type: 'address' },
+          { name: 'amount', type: 'uint256' },
+          { name: 'recipient', type: 'address' },
+        ],
+      },
+    });
+
+    return window.ethereum.request(
+      {
+        method: 'eth_signTypedData_v4',
+        params: [address, msgParams],
+        from: address,
+      }
+    )
+      .then(signature => {
+        return {
+          signature,
+          data: JSON.parse(msgParams),
+          from: address
+        };
+      })
   }
 
   return (
